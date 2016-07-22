@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"/>
+
+    <title>Kurbi Bots</title>
+
+    <link href="cms/styles/styles.api.min.css" rel="stylesheet" />
+    
+    <!-- this file makes the arrows work correctly -->
+    <!--<link href="rappid/v1.6/rappid.min.css" rel="stylesheet" />-->
+    <link href="jointjs/joint.css" rel="stylesheet" />
+    
+    <link href="css/header.css" rel="stylesheet"/>
+    <link href="css/toolbar.css" rel="stylesheet"/>
+    <link href="css/statusbar.css" rel="stylesheet"/>
+    <link href="css/paper.css" rel="stylesheet"/>
+    <link href="css/preview.css" rel="stylesheet"/>
+    <link href="css/halo.css" rel="stylesheet"/>
+    <link href="css/tooltip.css" rel="stylesheet"/>
+    <link href="css/snippet.css" rel="stylesheet"/>
+    <link href="css/dialog.css" rel="stylesheet"/>
+    <link href="css/index.css" rel="stylesheet"/>
+
+  </head>
+<body>
+
+<script>
+  SVGElement.prototype.getTransformToElement = SVGElement.prototype.getTransformToElement || function(toElement) {
+  return toElement.getScreenCTM().inverse().multiply(this.getScreenCTM());
+  };
+</script>
+
+    <main class="content layout_sidebar">
+
+      <section id="app">
+
+        <div id="toolbar">
+          <p id="page-logo">KURBI</p>
+          <button class="btn add-question">Add Question</button>
+          <button class="btn add-answer">Add Answer</button>
+          <button class="btn preview-dialog">Preview Dialog</button>
+          <button class="btn code-snippet">Code Snippet</button>
+          <button class="btn clear">Clear Canvas</button>
+          <button class="btn load-example">Load Example</button>
+        </div>
+
+        <div id="paper"></div>
+
+        <div id="statusbar">
+          <span class="message">Welcome to the Kurbi Bot Builder!</span>
+        </div>
+
+        <div id="preview" class="preview">
+        </div>
+
+      </section>
+
+    </main>
+
+    <script src="vendor/jquery/jquery.min.js"></script>
+    <script src="vendor/lodash/lodash.min.js"></script>
+    <script src="vendor/backbone/backbone-min.js"></script>
+    <!--<script src="rappid/v1.6/rappid.min.js"></script>-->
+    <script src="jointjs/joint.js"></script>
+
+    <script src="src/joint.shapes.qad.js"></script>
+    <script src="src/selection.js"></script>
+    <script src="src/factory.js"></script>
+    <script src="src/snippet.js"></script>
+    <script src="src/app.js"></script>
+    <script src="src/index.js"></script>
+  </body>
+</html>

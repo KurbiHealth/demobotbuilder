@@ -1,17 +1,15 @@
-RAPPID-ONLY TOOLS
-
-* joint.ui.Tooltip
-* joint.ui.Halo
-* joint.ui.TextEditor
-* joint.ui.Dialog
-
-
 ORIGINAL DEMO
 
 http://www.jointjs.com/demos/qad
 
 
 REPLICATING RAPPID (PAID) FUNCTIONALITY
+
+These Rappid plugins are used in the demo
+* joint.ui.Tooltip
+* joint.ui.Halo
+* joint.ui.TextEditor
+* joint.ui.Dialog
 
 We could recreate these tools (reverse-engineer rappid.min.js?), and plug them into the joint.ui namespace, as it exists in the open source joint.js file.
 

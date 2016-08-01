@@ -10,7 +10,7 @@
 // @import snippet.js
 
 var app = app || {};
-
+var botname = "Bowtie";
 app.AppView = Backbone.View.extend({
 
     el: '#app',
@@ -18,6 +18,7 @@ app.AppView = Backbone.View.extend({
     events: {
         'click #toolbar .add-question': 'addQuestion',
         'click #toolbar .add-answer': 'addAnswer',
+        'click #toolbar .add-icon': 'addIconSelector',
         'click #toolbar .preview-dialog': 'previewDialog',
         'click #toolbar .code-snippet': 'showCodeSnippet',
         'click #toolbar .load-example': 'loadExample',
@@ -29,10 +30,11 @@ app.AppView = Backbone.View.extend({
         this.initializePaper();
         this.initializeSelection();
         //this.initializeHalo();
-        this.initializeInlineTextEditor();
+          this.initializeInlineTextEditor();
         //this.initializeTooltips();
 
         this.loadExample();
+
     },
 
     initializeTooltips: function() {
@@ -58,6 +60,112 @@ app.AppView = Backbone.View.extend({
         });
     },
 
+    createQuestionJSON: function(graphJSON){
+        var outJSON = {};
+        graphJSON.cells.forEach(function(ele,index){
+           if(ele.type == 'qad.Question') {
+                var temp = {};
+
+                temp.message = {};
+                temp.responses = {};
+                temp.message.body = {};
+
+                temp.message.type = 'text message';
+                temp.message.body.displayName = botname;
+                temp.message.body.text = ele['question'];
+                temp.message.body.qCode = null;
+
+                temp.responses.type = 'response list text';
+                temp.responses.body = [];
+                temp.responses.keys = {};
+                ele.options.forEach(function(option,index){
+                    var oTemp = {};
+                    oTemp.message = {};
+                    oTemp.message.body = {};
+                    oTemp.message.body.displayName = null;
+                    oTemp.message.body.text = option.text;
+                    temp.responses.body.push(oTemp);
+                    temp.responses.keys[option.id] = index;
+                });
+
+                outJSON[ele.id] = temp;
+                
+            }
+
+
+            if(ele.type == 'qad.Answer') {
+                var temp = {};
+
+                temp.message = {};
+                temp.message.body = {};
+
+                temp.message.type = 'text message';
+                temp.message.body.displayName = botname;
+                temp.message.body.text = ele['answer'];
+                temp.message.body.qCode = null;
+
+                outJSON[ele.id] = temp;
+                
+            }
+
+
+            if(ele.type == 'qad.IconSelector') {
+                var BASEURL = "http://localhost:8080";
+                var body = [];
+                var letters = 'ABCDEFGHIJKLMNO';
+
+                for(var i = 1; i < 13; i++){
+                    var temp = {};
+                    
+                    temp.url = BASEURL+"/backend/icons/PNG/icon-"+i+".png";
+                    temp.message = {};
+                    temp.message.type = 'image message';
+                    temp.message.qCode = null;
+                    temp.message.meta = i;
+                    temp.message.body = {
+                                    image: temp.url,
+                                        };
+                    temp.id = i;
+                    body.push(temp);
+                }
+
+                var msg =   {
+                        message:{
+                            type:'text message', 
+                            body:{
+                                displayName:name, 
+                                text:"Our chat is completely anonymous, so let's start by choosing an avatar you'd like to represent you.",
+                            }
+
+                        },
+                        responses: {
+                            type:'response list icons',
+                            body:body,
+                            keys: {}
+                        }
+
+                };
+
+                outJSON[ele.id] = msg;
+
+            }
+
+            
+
+        });
+        graphJSON.cells.forEach(function(ele){
+            //I want this to run after we've already populated
+            //the outJSON 
+        console.log(graphJSON);
+
+            if(ele.type == 'link'){
+                var portIndex = outJSON[ele.source.id].responses.keys[ele.source.port] || 0;
+                outJSON[ele.source.id].responses.body[portIndex].qCode = ele.target.id;
+            }
+        });
+        console.log(outJSON);
+    },
+
     initializeInlineTextEditor: function() {
 
         var cellViewUnderEdit;
@@ -73,86 +181,143 @@ app.AppView = Backbone.View.extend({
         }, this);
 
         this.paper.on('cell:pointerdblclick', function(cellView, evt) {
+            
+            
+            this.createQuestionJSON(this.graph.toJSON());
+            //evt.target.parentElement.setAttribute('editable','true');
+            var left = evt.target.getBoundingClientRect().left;
+            var top = evt.target.getBoundingClientRect().top;
+            var charSize = 8; 
+            var height = cellView.getBBox().height;
+            var width = cellView.getBBox().width;
+            
+            var path = cellView.model.get('type').split('.')[1].toLowerCase();
+            var options = cellView.model.get('options');
+            if(evt.target.parentElement.nodeName == 'text') 
+                {
 
-            // Clean up the old text editor if there was one.
-            closeEditor();
+                    evt.target.innerHTML = evt.target.innerHTML.replace(/&nbsp;/g,' ');
+                    charSize = evt.target.getBoundingClientRect().width / evt.target.innerHTML.length;
+                    evt.target.style.visibility = "hidden";
+                    this.textEditor = true;
 
-            var vTarget = V(evt.target);
-            var text;
-            var cell = cellView.model;
 
-            switch (cell.get('type')) {
 
-            case 'qad.Question':
-
-                text = joint.ui.TextEditor.getTextElement(evt.target);
-                if (vTarget.hasClass('body') || V(text).hasClass('question-text')) {
-
-                    text = cellView.$('.question-text')[0];
-                    cellView.textEditPath = 'question';
-
-                } else if (V(text).hasClass('option-text')) {
-
-                    cellView.textEditPath = 'options/' + _.findIndex(cell.get('options'), { id: V(text.parentNode).attr('option-id') }) + '/text';
-                    cellView.optionId = V(text.parentNode).attr('option-id');
-
-                } else if (vTarget.hasClass('option-rect')) {
-
-                    text = V(vTarget.node.parentNode).find('.option-text');
-                    cellView.textEditPath = 'options/' + _.findIndex(cell.get('options'), { id: V(vTarget.node.parentNode).attr('option-id') }) + '/text';
-                }
-                break;
-
-            case 'qad.Answer':
-                text = joint.ui.TextEditor.getTextElement(evt.target);
-                cellView.textEditPath = 'answer';
-                break;
-            }
-
-            if (text) {
-
-                this.textEditor = new joint.ui.TextEditor({ text: text });
-                this.textEditor.render(this.paper.el);
-
-                this.textEditor.on('text:change', function(newText) {
-
-                    var cell = cellViewUnderEdit.model;
-                    // TODO: prop() changes options and so options are re-rendered
-                    // (they are rendered dynamically).
-                    // This means that the `text` SVG element passed to the ui.TextEditor
-                    // no longer exists! An exception is thrown subsequently.
-                    // What do we do here?
-                    cell.prop(cellViewUnderEdit.textEditPath, newText);
-
-                    // A temporary solution or the right one? We just
-                    // replace the SVG text element of the textEditor options object with the new one
-                    // that was dynamically created as a reaction on the `prop` change.
-                    if (cellViewUnderEdit.optionId) {
-                        this.textEditor.options.text = cellViewUnderEdit.$('.option.option-' + cellViewUnderEdit.optionId + ' .option-text')[0];
+                    if(evt.target.parentElement.className.baseVal == 'option-text'){
+                        var targetIndex = 0;
+                        cellView.model.get('options').forEach(function(element,index){
+                            if(element.text == evt.target.innerHTML) targetIndex = index;
+                        });
+                        path = 'options/'+targetIndex+'/text';
                     }
 
-                }, this);
+                    var textInput = document.createElement('input');
+                    textInput.style.fontFamily = evt.target.parentElement.getAttribute("font-family")
+                    textInput.style.fontSize = evt.target.parentElement.getAttribute("font-size") +"px";
+                    textInput.style.backgroundColor = "transparent";
+                    textInput.style.border = "none";
+                    textInput.style.position = "absolute";
+                    textInput.style.left = left + "px";
+                    textInput.style.top = (top + window.scrollY) +  "px";
+                    this.currentInput = textInput;
+                    textInput.addEventListener("blur", function(){
+                        if(textInput.value != evt.target.innerHTML){
+                            cellView.model.prop(path,textInput.value)
+                            var newWidth = charSize * textInput.value.length*1.4;
+                            if(path == 'answer' || path == 'question') cellView.model.resize(newWidth,height);
+                        }
+                        evt.target.style.visibility = "visible";
+                        document.body.removeChild(textInput);
+                        this.textEditor = false;
+                        delete this.currentInput;
+                    });
+                    textInput.value = evt.target.innerHTML;
+            
+            
+            document.body.appendChild(textInput);
+            textInput.focus();
+                }
+            
+                
+            // // Clean up the old text editor if there was one.
+            // closeEditor();
 
-                cellViewUnderEdit = cellView;
-                // Prevent dragging during inline editing.
-                cellViewUnderEdit.options.interactive = false;
-            }
+            // var vTarget = V(evt.target);
+            // var text;
+            // var cell = cellView.model;
+
+            // switch (cell.get('type')) {
+
+            // case 'qad.Question':
+
+            //     text = joint.ui.TextEditor.getTextElement(evt.target);
+            //     if (vTarget.hasClass('body') || V(text).hasClass('question-text')) {
+
+            //         text = cellView.$('.question-text')[0];
+            //         cellView.textEditPath = 'question';
+
+            //     } else if (V(text).hasClass('option-text')) {
+
+            //         cellView.textEditPath = 'options/' + _.findIndex(cell.get('options'), { id: V(text.parentNode).attr('option-id') }) + '/text';
+            //         cellView.optionId = V(text.parentNode).attr('option-id');
+
+            //     } else if (vTarget.hasClass('option-rect')) {
+
+            //         text = V(vTarget.node.parentNode).find('.option-text');
+            //         cellView.textEditPath = 'options/' + _.findIndex(cell.get('options'), { id: V(vTarget.node.parentNode).attr('option-id') }) + '/text';
+            //     }
+            //     break;
+
+            // case 'qad.Answer':
+            //     text = joint.ui.TextEditor.getTextElement(evt.target);
+            //     cellView.textEditPath = 'answer';
+            //     break;
+            // }
+
+            // if (text) {
+
+            //     this.textEditor = new joint.ui.TextEditor({ text: text });
+            //     this.textEditor.render(this.paper.el);
+
+            //     this.textEditor.on('text:change', function(newText) {
+
+            //         var cell = cellViewUnderEdit.model;
+            //         // TODO: prop() changes options and so options are re-rendered
+            //         // (they are rendered dynamically).
+            //         // This means that the `text` SVG element passed to the ui.TextEditor
+            //         // no longer exists! An exception is thrown subsequently.
+            //         // What do we do here?
+            //         cell.prop(cellViewUnderEdit.textEditPath, newText);
+
+            //         // A temporary solution or the right one? We just
+            //         // replace the SVG text element of the textEditor options object with the new one
+            //         // that was dynamically created as a reaction on the `prop` change.
+            //         if (cellViewUnderEdit.optionId) {
+            //             this.textEditor.options.text = cellViewUnderEdit.$('.option.option-' + cellViewUnderEdit.optionId + ' .option-text')[0];
+            //         }
+
+            //     }, this);
+
+            //     cellViewUnderEdit = cellView;
+            //     // Prevent dragging during inline editing.
+            //     cellViewUnderEdit.options.interactive = false;
+            // }
         }, this);
 
         $(document.body).on('click', _.bind(function(evt) {
+            if(this.currentInput && evt.target != this.currentInput) this.currentInput.blur();
+            // var text = joint.ui.TextEditor.getTextElement(evt.target);
+            // if (this.textEditor && !text) {
 
-            var text = joint.ui.TextEditor.getTextElement(evt.target);
-            if (this.textEditor && !text) {
-
-                closeEditor();
-            }
+            //     closeEditor();
+            // }
         }, this));
     },
 
     initializeHalo: function() {
 
         this.paper.on('cell:pointerup', function(cellView, evt) {
-
+            console.log('hello');
             if (cellView.model instanceof joint.dia.Link) return;
 
             var halo = new joint.ui.Halo({
@@ -198,6 +363,10 @@ app.AppView = Backbone.View.extend({
                 this.selection.first().remove();
                 this.selection.reset();
                 return false;
+            }
+
+            if( code === 13 && this.textEditor){
+                this.currentInput.blur();
             }
 
         }, this), false);
@@ -282,6 +451,12 @@ app.AppView = Backbone.View.extend({
         var a = app.Factory.createAnswer('Answer');
         this.graph.addCell(a);
         this.status('Answer added.');
+    },
+
+    addIconSelector: function(){
+        var a = app.Factory.createIconSelector('Select Icon');
+        this.graph.addCell(a);
+        this.status('IconSelector added.');  
     },
 
     previewDialog: function() {

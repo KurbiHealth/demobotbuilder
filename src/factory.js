@@ -17,6 +17,15 @@ app.Factory = {
         return q;
     },
 
+    createIconSelector: function(text){
+        var a = new joint.shapes.qad.IconSelector({
+            position: { x: 400 - 50, y: 30 },
+            size: { width: 100, height: 70 },
+            prompt: text
+        });
+        return a;
+    },
+
     createAnswer: function(text) {
 
         var a = new joint.shapes.qad.Answer({

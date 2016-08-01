@@ -1,5 +1,6 @@
 joint.shapes.qad = {};
 
+
 joint.shapes.qad.Answer = joint.shapes.basic.Generic.extend({
 
     markup: '<g class="rotatable"><g class="scalable"><rect/></g><text/></g>',
@@ -81,6 +82,132 @@ joint.shapes.qad.AnswerView = joint.dia.ElementView.extend({
         this.model.resize(dim.width + 50, dim.height + 50);
     }
 });
+
+
+joint.shapes.qad.IconSelector  = joint.shapes.basic.Generic.extend(_.extend({}, joint.shapes.basic.PortsModelInterface, {
+
+    markup: '<g class="rotatable"><g class="scalable"><rect class="body"/></g><text class="prompt-text"/><g class="options"></g><g class="inPorts"/><g class="outPorts"/></g>',
+    portMarkup: '<g class="port port-<%= port.id %>"><circle class="port-body"/><text class="port-label"/></g>',
+
+    defaults: joint.util.deepSupplement({
+
+        type: 'qad.IconSelector',
+        size: { width: 1, height: 1 },
+
+        iconSelectorHeight: 45,
+        paddingBottom: 20,
+        minWidth: 150,
+        
+        inPorts: [{ id: 'in', label: 'In' }],
+        outPorts: [{id: 'out', label:'Out' }],
+
+        attrs: {
+            '.': { magnet: false },
+            '.body': {
+                width: 150, height: 250,
+                rx: '1%', ry: '2%',
+                stroke: 'none',
+                fill: {
+                    type: 'linearGradient',
+                    stops: [
+                        { offset: '0%', color: '#FEB663' },
+                        { offset: '100%', color: '#31D0C6' }
+                    ],
+                    // Top-to-bottom gradient.
+                    attrs: { x1: '0%', y1: '0%', x2: '0%', y2: '100%' }
+                }
+            },
+
+
+            '.options': { ref: '.body', 'ref-x': 0 },
+            '.port-body': {
+                magnet: true
+            },
+            '.port-label': {
+                'pointer-events': 'none'
+            },
+
+
+            // Text styling.
+            text: { 'font-family': 'Arial' },
+            '.prompt-text': { 'font-size': 15, dy: 5, fill: 'white', 'ref-x': .5, 'ref-y': 10, 'x-alignment': 'middle', ref: '.body', style: { 'text-shadow': '1px 1px 0px gray' } },
+            '.inPorts .port-label': { 'font-size': 10, fill: 'white', x: 0, dy: 0, 'text-anchor': 'middle', 'y-alignment': 'middle' },
+            '.outPorts .port-label': { 'font-size': 10, fill: 'white', x: 0, dy: 0, 'text-anchor': 'middle', 'y-alignment': 'middle' },
+
+            // Ports styling.
+            '.option .port-body': { stroke: 'none', r: 14, fill: '#31d0c6' },
+            '.inPorts .port-body': { stroke: 'white', fill: '#feb663', r: 10 },
+            '.outPorts .port-body': { stroke: 'none', fill: '#7c68fc', r: 10 },
+            
+        }
+
+    }, joint.shapes.basic.Generic.prototype.defaults),
+
+    initialize: function() {
+
+        this.on('change:prompt', function() {
+            this.attr('.prompt-text/text', this.get('prompt') || '');
+            this.autoresize();
+        }, this);
+
+        this.on('change:iconSelectorHeight', function() {
+            this.attr('.options/ref-y', this.get('iconSelectorHeight'), { silent: true });
+            this.autoresize();
+        }, this);
+
+        this.attr('.prompt-text/text', this.get('prompt'), { silent: true });
+
+        joint.shapes.basic.PortsModelInterface.initialize.apply(this, arguments);
+    },
+
+    autoresize: function() {
+
+        var gap = this.get('paddingBottom') || 20;
+        var height = this.get('iconSelectorHeight') + gap;
+        var width = joint.util.measureText(this.get('question'), {
+            fontSize: this.attr('.prompt-text/font-size')
+        }).width;
+        this.resize(Math.max(this.get('minWidth') || 150, width), height);
+    },
+
+    getPortAttrs: function(port, index, total, selector, type) {
+
+        var attrs = {};
+        
+        var portClass = 'port-' + port.id;
+        var portSelector = selector + '>.' + portClass;
+        var portTextSelector = portSelector + '>.port-label';
+        var portCircleSelector = portSelector + '>.port-body';
+
+        attrs[portTextSelector] = { text: port.label };
+        attrs[portCircleSelector] = { port: { id: port.id, type: type, label: port.label } };
+        attrs[portSelector] = { ref: '.body', 'ref-x': (index + 0.5) * (1 / total) };
+        
+        if (selector === '.outPorts') { attrs[portSelector]['ref-dy'] = 0; }
+
+        return attrs;
+    },
+
+
+}));
+
+joint.shapes.qad.IconSelectorView = joint.dia.ElementView.extend(_.extend({}, joint.shapes.basic.PortsViewInterface, {
+
+
+    initialize: function() {
+        joint.shapes.basic.PortsViewInterface.initialize.apply(this, arguments);
+    },
+
+    renderMarkup: function() {
+
+        joint.dia.ElementView.prototype.renderMarkup.apply(this, arguments);
+
+    },
+
+}));
+
+
+
 
 joint.shapes.qad.Question = joint.shapes.basic.Generic.extend(_.extend({}, joint.shapes.basic.PortsModelInterface, {
 

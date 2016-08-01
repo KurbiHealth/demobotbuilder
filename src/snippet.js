@@ -36,6 +36,8 @@ qad.renderDialog = function(dialog, node) {
     case 'qad.Answer':
         this.renderAnswer(node);
         break;
+    case 'qad.IconSelector':
+        this.renderIconSelector(node);
     }
 
     this.currentNode = node;
@@ -95,8 +97,17 @@ qad.renderAnswer = function(node) {
     this.el.appendChild(elContent);
 };
 
-qad.onOptionClick = function(evt) {
+qad.renderIconSelector = function(node) {
 
+    var elContent = this.createElement('div', 'qad-content');
+    var elIcon = this.createElement('h3', 'qad-icon-header');
+    elIcon.innerHTML = node.icon;
+
+    elContent.appendChild(elIcon);
+    this.el.appendChild(elContent);
+};
+
+qad.onOptionClick = function(evt) {
     var elOption = evt.target;
     var optionId = elOption.getAttribute('data-option-id');
 

@@ -107,7 +107,8 @@ joint.shapes.qad.IconSelector  = joint.shapes.basic.Generic.extend(_.extend({}, 
                 width: 150, height: 250,
                 rx: '1%', ry: '2%',
                 stroke: 'none',
-                fill: {
+                fill: '#e91e63'
+                /*{
                     type: 'linearGradient',
                     stops: [
                         { offset: '0%', color: '#FEB663' },
@@ -115,7 +116,7 @@ joint.shapes.qad.IconSelector  = joint.shapes.basic.Generic.extend(_.extend({}, 
                     ],
                     // Top-to-bottom gradient.
                     attrs: { x1: '0%', y1: '0%', x2: '0%', y2: '100%' }
-                }
+                }*/
             },
 
 
@@ -234,7 +235,9 @@ joint.shapes.qad.Question = joint.shapes.basic.Generic.extend(_.extend({}, joint
                 width: 150, height: 250,
                 rx: '1%', ry: '2%',
                 stroke: 'none',
-                fill: {
+                fill: '#e91e63' // #46008C
+                /*{
+
                     type: 'linearGradient',
                     stops: [
                         { offset: '0%', color: '#FEB663' },
@@ -242,7 +245,7 @@ joint.shapes.qad.Question = joint.shapes.basic.Generic.extend(_.extend({}, joint
                     ],
                     // Top-to-bottom gradient.
                     attrs: { x1: '0%', y1: '0%', x2: '0%', y2: '100%' }
-                }
+                } */
             },
             '.btn-add-option': {
                 ref: '.body', 'ref-x': 10, 'ref-dy': -17, cursor: 'pointer'
@@ -264,12 +267,18 @@ joint.shapes.qad.Question = joint.shapes.basic.Generic.extend(_.extend({}, joint
             // Text styling.
             text: { 'font-family': 'Arial' },
             '.option-text': { 'font-size': 11, dy: 5, fill: '#4b4a67', 'y-alignment': .4, 'x-alignment': 20 },
-            '.question-text': { 'font-size': 15, dy: 5, fill: 'white', 'ref-x': .5, 'ref-y': 10, 'x-alignment': 'middle', ref: '.body', style: { 'text-shadow': '1px 1px 0px gray' } },
-            '.inPorts .port-label': { 'font-size': 10, fill: 'white', x: 0, dy: 0, 'text-anchor': 'middle', 'y-alignment': 'middle' },
-            '.outPorts .port-label': { 'font-size': 10, fill: 'white', x: 0, dy: 0, 'text-anchor': 'middle', 'y-alignment': 'middle' },
+            '.question-text': { 'font-size': 15, dy: 5, 
+            //fill: 'white', 
+            'ref-x': .5, 'ref-y': 10, 'x-alignment': 'middle', ref: '.body', style: { 'text-shadow': '1px 1px 0px gray' } },
+            '.inPorts .port-label': { 'font-size': 10, 
+            //fill: 'white', 
+            x: 0, dy: 0, 'text-anchor': 'middle', 'y-alignment': 'middle' },
+            '.outPorts .port-label': { 'font-size': 10, 
+            //fill: 'white', 
+            x: 0, dy: 0, 'text-anchor': 'middle', 'y-alignment': 'middle' },
 
             // Ports styling.
-            '.option .port-body': { stroke: 'none', r: 14, fill: '#31d0c6' },
+            '.option .port-body': { stroke: 'none', r: 10, fill: 'gray' /* #31d0c6 */},
             '.inPorts .port-body': { stroke: 'white', fill: '#feb663', r: 10 },
             '.outPorts .port-body': { stroke: 'none', fill: '#7c68fc', r: 10 },
             

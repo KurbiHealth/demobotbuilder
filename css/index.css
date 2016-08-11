@@ -14,11 +14,11 @@ html, body {
     margin-left: 0;
 }
 
-#page-logo{
-	display: inline-block;
-    font-size: 24px;
-    margin-left: -70px;
-    margin-right: 20px;
+#main{
+    display: block;
+    height: 100%;
+    width: 90%;
+    margin-left: 130px;
 }
 
 *:focus{

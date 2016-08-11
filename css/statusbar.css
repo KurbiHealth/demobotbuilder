@@ -7,6 +7,8 @@
     color: #7a7d9a;
     font-family: Helvetica Neue;
     font-size: 10pt;
+    margin-left: 130px;
+    width: 800px;
 }
 #statusbar:before {
     content: '';

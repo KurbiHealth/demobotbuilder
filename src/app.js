@@ -19,9 +19,9 @@ app.AppView = Backbone.View.extend({
         'click #toolbar .add-question': 'addQuestion',
         'click #toolbar .add-answer': 'addAnswer',
         'click #toolbar .add-icon': 'addIconSelector',
-        'click #toolbar .preview-dialog': 'previewDialog',
+        'click #top-nav .preview-dialog': 'previewDialog',
         'click #toolbar .code-snippet': 'showCodeSnippet',
-        'click #toolbar .load-example': 'loadExample',
+        'click #top-nav .load-example': 'loadExample',
         'click #toolbar .clear': 'clear'
     },
 

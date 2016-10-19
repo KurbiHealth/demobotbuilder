@@ -1,8 +1,6 @@
 #header {
     height: 50px;
-    background-color: #46008C;
     color: white;
-    text-align: center;
 }
 #header h1 {
     font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
@@ -12,7 +10,7 @@
     line-height: 50px;
     font-size: 18px;
     float: left;
-    color: white;
+    color: #6a6c8a;
     font-weight:600;
 }
 #header p {
@@ -47,17 +45,18 @@
 }
 
 #top-nav{
-    float: right;
+    position: absolute;
+    left: 350px;
     margin-right: 100px;
     margin-top: 10px;
     color: white;
 }
 
 #top-nav button{
-    border: 1px solid white;
+    border: 1px solid #6a6c8a;
     border-radius: 15px;
     background: white;
-    color: black;
+    color: gray;
     padding: 5px 10px;
     font-size: 14px;
 }

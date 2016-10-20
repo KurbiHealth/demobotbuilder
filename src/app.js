@@ -10,7 +10,118 @@
 // @import snippet.js
 
 var app = app || {};
-var botname = "Bowtie";
+
+var botname = null;
+var displayName = "HealthTron 322"
+var appHandler = null;
+var serverURL = "http://public.foolhardysoftworks.com:8180";
+var bots = [];
+
+function debounce(func, wait, immediate) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        var later = function() {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        var callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+};
+
+function setupHandlers(){
+
+        $('#botchooser').on('change', function(){
+            var index = $(this).val();
+            var n = bots[index].name;
+            botname = n;
+            $("#botname").val(n);
+             var json = JSON.parse(bots[index].graph);
+             appHandler.graph.fromJSON(json);
+        });
+        $("#botname").on('blur', function(){
+            botname = $(this).val();
+            var createNew = true;
+            bots.forEach(function(bot){
+                console.log(bot.name, botname);
+                if(bot.name == botname) createNew = false;
+            });
+
+            if(createNew) createNewBot();
+        });
+        $("#deleteBot").on('click', function(){
+            var name = bots[$("#botchooser").val()].name;
+            console.log('delete', name );
+            $.post(serverURL + "/deleteBot", {name:name}, function(res){
+                console.log(res);
+                loadBots();
+
+            });
+        });
+}
+
+function createNewBot(){
+    console.log('creating new bot');
+    var dataCall = $.get('/data/kurbi.json');
+    
+        
+        dataCall.error(function(err){console.log('error',err);});
+        dataCall.fail(function(fail){console.log('fail',fail);});
+
+        dataCall.then(function(json){
+            
+            appHandler.graph.fromJSON(json);
+            
+        });
+}
+
+function saveChatBot(){
+    console.log('saving current bot');
+    var botObject = {};
+    var graphJSON = appHandler.graph.toJSON();
+    botObject.name = botname;
+    botObject.graphJSON = JSON.stringify(graphJSON);
+    botObject.questionJSON = appHandler.createQuestionJSON(graphJSON,appHandler.graph);
+    console.log(botObject.questionJSON);
+    console.log(graphJSON);
+    $.post(serverURL + "/bot", botObject).then(function(res){
+        console.log(res);
+        loadBots();
+    });
+}
+
+function loadBots(){
+        var dataCall = $.get(serverURL + '/bot');
+        
+        dataCall.error(function(err){console.log('error',err);});
+        dataCall.fail(function(fail){console.log('fail',fail);});
+
+        dataCall.then(function(res){
+            bots = res;
+            var selected = 1;
+            $('#botchooser').empty();
+            $.each(res, function (index, value) {
+                if(value.name == botname) {
+                    selected = index;
+                }
+                if(value.name != "Hank")
+                $('#botchooser').append($('<option/>', { 
+                     value: index,
+                     text : value.name, 
+                 }));
+            }); 
+            $('#botchooser').val(selected);
+            $('#botname').val(bots[selected].name);
+            botname = bots[selected].name;
+            var json = JSON.parse(bots[selected].graph);
+             appHandler.graph.fromJSON(json);
+        });
+
+}
+
 app.AppView = Backbone.View.extend({
 
     el: '#app',
@@ -34,7 +145,11 @@ app.AppView = Backbone.View.extend({
         //this.initializeTooltips();
 
         this.loadExample();
-
+        setupHandlers();
+        loadBots();
+        this.graph.on('change', debounce(saveChatBot, 1000, false));
+        
+        appHandler = this;
     },
 
     initializeTooltips: function() {
@@ -60,18 +175,22 @@ app.AppView = Backbone.View.extend({
         });
     },
 
-    createQuestionJSON: function(graphJSON){
+    createQuestionJSON: function(graphJSON,graph){
         var outJSON = {};
         graphJSON.cells.forEach(function(ele,index){
            if(ele.type == 'qad.Question') {
                 var temp = {};
+                temp.qcode = ele['id'];
+                temp.name = botname;
+                temp.version = "0.0.1";
+                if(ele['start']) temp.qcode = "welcome";
 
                 temp.message = {};
                 temp.responses = {};
                 temp.message.body = {};
 
                 temp.message.type = 'text message';
-                temp.message.body.displayName = botname;
+                temp.message.body.displayName = displayName;
                 temp.message.body.text = ele['question'];
                 temp.message.body.qCode = null;
 
@@ -84,6 +203,8 @@ app.AppView = Backbone.View.extend({
                     oTemp.message.body = {};
                     oTemp.message.body.displayName = null;
                     oTemp.message.body.text = option.text;
+                    oTemp.message.type = "text message";
+                    oTemp.text = option.text;
                     temp.responses.body.push(oTemp);
                     temp.responses.keys[option.id] = index;
                 });
@@ -95,29 +216,40 @@ app.AppView = Backbone.View.extend({
 
             if(ele.type == 'qad.Answer') {
                 var temp = {};
-
+                temp.qcode = ele['id'];
+                temp.name = botname;
+                temp.version = "0.0.1";
                 temp.message = {};
                 temp.message.body = {};
 
-                temp.message.type = 'text message';
-                temp.message.body.displayName = botname;
+                temp.message.type = 'end message';
+                temp.message.body.displayName = displayName;
                 temp.message.body.text = ele['answer'];
                 temp.message.body.qCode = null;
-
+                temp.message.body.image = serverURL+'/backend/icons/PNG/mawc.png';
+                temp.responses = {
+                type:'response end',
+                    body:{
+                        bye:{
+                            text: "End Chat Session",
+                            id: 'end',
+                        },              
+                    }
+                }
                 outJSON[ele.id] = temp;
                 
             }
 
 
             if(ele.type == 'qad.IconSelector') {
-                var BASEURL = "http://localhost:8080";
+                
                 var body = [];
                 var letters = 'ABCDEFGHIJKLMNO';
 
                 for(var i = 1; i < 13; i++){
                     var temp = {};
                     
-                    temp.url = BASEURL+"/backend/icons/PNG/icon-"+i+".png";
+                    temp.url = serverURL+"/backend/icons/PNG/icon-"+i+".png";
                     temp.message = {};
                     temp.message.type = 'image message';
                     temp.message.qCode = null;
@@ -133,7 +265,7 @@ app.AppView = Backbone.View.extend({
                         message:{
                             type:'text message', 
                             body:{
-                                displayName:name, 
+                                displayName:displayName, 
                                 text:"Our chat is completely anonymous, so let's start by choosing an avatar you'd like to represent you.",
                             }
 
@@ -142,7 +274,10 @@ app.AppView = Backbone.View.extend({
                             type:'response list icons',
                             body:body,
                             keys: {}
-                        }
+                        },
+                        qcode: ele['id'],
+                        name:botname,
+                        version:"0.0.1",
 
                 };
 
@@ -153,17 +288,27 @@ app.AppView = Backbone.View.extend({
             
 
         });
+
         graphJSON.cells.forEach(function(ele){
             //I want this to run after we've already populated
             //the outJSON 
-        console.log(graphJSON);
 
             if(ele.type == 'link'){
                 var portIndex = outJSON[ele.source.id].responses.keys[ele.source.port] || 0;
-                outJSON[ele.source.id].responses.body[portIndex].qCode = ele.target.id;
+                var sourceType = graph.getCell(ele.source.id).attributes.type;
+                
+                if(sourceType == "qad.IconSelector"){
+
+                    outJSON[ele.source.id].responses.body.forEach(function(item){
+                        item.message.qCode = ele.target.id;
+                    });
+                }else outJSON[ele.source.id].responses.body[portIndex].message.qCode = ele.target.id;
+                
+                //outJSON[ele.source.id].responses.body[portIndex].message.type = cc[graph.getCell(ele.target.id).attributes.type];
+                //console.log(ele.target.id, graph.getCell(ele.target.id).attributes.type);
             }
         });
-        console.log(outJSON);
+        return(outJSON);
     },
 
     initializeInlineTextEditor: function() {
@@ -182,8 +327,7 @@ app.AppView = Backbone.View.extend({
 
         this.paper.on('cell:pointerdblclick', function(cellView, evt) {
             
-            
-            this.createQuestionJSON(this.graph.toJSON());
+            //this.createQuestionJSON(this.graph.toJSON());
             //evt.target.parentElement.setAttribute('editable','true');
             var left = evt.target.getBoundingClientRect().left;
             var top = evt.target.getBoundingClientRect().top;
@@ -357,11 +501,15 @@ app.AppView = Backbone.View.extend({
         document.body.addEventListener('keydown', _.bind(function(evt) {
 
             var code = evt.which || evt.keyCode;
+            var canDelete = true;
+            if(this.selection.first() && this.selection.first().attributes.start) canDelete = false;
             // Do not remove the element with backspace if we're in inline text editing.
             if ((code === 8 || code === 46) && !this.textEditor && this.selection.first()) {
-
-                this.selection.first().remove();
-                this.selection.reset();
+                if(canDelete){
+                 this.selection.first().remove();
+                 this.selection.reset();   
+                }
+                 
                 return false;
             }
 
@@ -476,17 +624,19 @@ app.AppView = Backbone.View.extend({
 
     loadExample: function() {
 
-        //this.graph.fromJSON({"cells":[{"type":"qad.Question","size":{"width":251.8984375,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":34,"y":140},"angle":0,"question":"Does the thing work?","id":"8c1450b5-ca1f-4222-9a11-69c05e67c6b6","z":1,"attrs":{".label":{"text":"Does the thing work?"},".inPorts>.port0>.port-label":{"text":"In"},".inPorts>.port0>.port-body":{"port":{"id":"in","type":"in"},"fill":"#f6f6f6"},".inPorts>.port0":{"ref":".body","ref-y":0.5},".outPorts>.port0>.port-label":{"text":"Yes"},".outPorts>.port0>.port-body":{"port":{"id":"yes","type":"out"},"fill":"#31d0c6"},".outPorts>.port0":{"ref":".body","ref-y":0.25,"ref-dx":0},".outPorts>.port1>.port-label":{"text":"No"},".outPorts>.port1>.port-body":{"port":{"id":"no","type":"out"},"fill":"#fe854f"},".outPorts>.port1":{"ref":".body","ref-y":0.75,"ref-dx":0}}},{"type":"qad.Answer","size":{"width":223.796875,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":311,"y":26},"angle":0,"answer":"Don't mess about with it.","id":"d90182dd-46f7-4392-a483-4c9c2c9c3715","z":2,"attrs":{"text":{"text":"Don't mess about with it."}}},{"type":"qad.Question","size":{"width":245.6484375,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":127,"y":308},"angle":0,"question":"Did you mess about with it?","id":"3ff1e021-fece-4ec7-8ce9-4420d90901d8","z":3,"attrs":{".label":{"text":"Did you mess about with it?"},".inPorts>.port0>.port-label":{"text":"In"},".inPorts>.port0>.port-body":{"port":{"id":"in","type":"in"},"fill":"#f6f6f6"},".inPorts>.port0":{"ref":".body","ref-y":0.5},".outPorts>.port0>.port-label":{"text":"Yes"},".outPorts>.port0>.port-body":{"port":{"id":"yes","type":"out"},"fill":"#31d0c6"},".outPorts>.port0":{"ref":".body","ref-y":0.25,"ref-dx":0},".outPorts>.port1>.port-label":{"text":"No"},".outPorts>.port1>.port-body":{"port":{"id":"no","type":"out"},"fill":"#fe854f"},".outPorts>.port1":{"ref":".body","ref-y":0.75,"ref-dx":0}}},{"type":"link","source":{"id":"8c1450b5-ca1f-4222-9a11-69c05e67c6b6","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(1) circle:nth-child(1)     ","port":"yes"},"target":{"id":"d90182dd-46f7-4392-a483-4c9c2c9c3715"},"id":"45c5f30e-bc19-4fda-97f2-b55ea7cab916","embeds":"","z":4,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"qad.Answer","size":{"width":151.7890625,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":499,"y":266},"angle":0,"answer":"You're an idiot","id":"9bfbdacd-ae3e-4982-824a-1cbba53603a3","z":5,"attrs":{"text":{"text":"You're an idiot"}}},{"type":"link","source":{"id":"3ff1e021-fece-4ec7-8ce9-4420d90901d8","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(1) circle:nth-child(1)     ","port":"yes"},"target":{"id":"9bfbdacd-ae3e-4982-824a-1cbba53603a3"},"id":"f2c31a0d-c424-4653-a114-94c6d279d264","embeds":"","z":6,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"qad.Question","size":{"width":205.6171875,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":208,"y":465},"angle":0,"question":"Will you get screwed?","id":"05c074aa-140a-4b81-8ba7-648675ccef6f","z":8,"attrs":{".label":{"text":"Will you get screwed?"},".inPorts>.port0>.port-label":{"text":"In"},".inPorts>.port0>.port-body":{"port":{"id":"in","type":"in"},"fill":"#f6f6f6"},".inPorts>.port0":{"ref":".body","ref-y":0.5},".outPorts>.port0>.port-label":{"text":"Yes"},".outPorts>.port0>.port-body":{"port":{"id":"yes","type":"out"},"fill":"#31d0c6"},".outPorts>.port0":{"ref":".body","ref-y":0.25,"ref-dx":0},".outPorts>.port1>.port-label":{"text":"No"},".outPorts>.port1>.port-body":{"port":{"id":"no","type":"out"},"fill":"#fe854f"},".outPorts>.port1":{"ref":".body","ref-y":0.75,"ref-dx":0}}},{"type":"qad.Answer","size":{"width":142.5,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":530,"y":519},"angle":0,"answer":"Put it in a bin","id":"df22d7c0-a59e-4963-879b-a8de67f189b6","z":9,"attrs":{"text":{"text":"Put it in a bin"}}},{"type":"link","source":{"id":"8c1450b5-ca1f-4222-9a11-69c05e67c6b6","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(2) circle:nth-child(1)     ","port":"no"},"target":{"id":"3ff1e021-fece-4ec7-8ce9-4420d90901d8","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(1) circle:nth-child(1)     ","port":"in"},"id":"a65339c9-01c8-4fa5-a181-d72ecaf8a7ec","embeds":"","z":10,"vertices":[{"x":334,"y":224},{"x":76,"y":304}],"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"link","source":{"id":"3ff1e021-fece-4ec7-8ce9-4420d90901d8","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(2) circle:nth-child(1)     ","port":"no"},"target":{"id":"05c074aa-140a-4b81-8ba7-648675ccef6f","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(1) circle:nth-child(1)     ","port":"in"},"id":"85430e16-8a6d-43c9-ab79-a468f3435991","embeds":"","z":11,"vertices":[{"x":412,"y":412},{"x":174,"y":457}],"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"link","source":{"id":"05c074aa-140a-4b81-8ba7-648675ccef6f","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(2) circle:nth-child(1)     ","port":"no"},"target":{"id":"df22d7c0-a59e-4963-879b-a8de67f189b6"},"id":"3bf86457-227f-437e-98b5-ccf73b489342","embeds":"","z":12,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"qad.Answer","size":{"width":172.75,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":509,"y":402},"angle":0,"answer":"Poor boy","id":"162b05c4-bbda-42e5-b079-33aea3bad948","z":13,"attrs":{"text":{"text":"You poor bastard"}}},{"type":"link","source":{"id":"05c074aa-140a-4b81-8ba7-648675ccef6f","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(1) circle:nth-child(1)     ","port":"yes"},"target":{"id":"162b05c4-bbda-42e5-b079-33aea3bad948"},"id":"fb898507-7eab-4f89-a75c-5f886b73b1c5","embeds":"","z":14,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}}]});
-        //this.graph.fromJSON({"cells":[{"type":"qad.Question","size":{"width":201.8984375,"height":125},"optionHeight":30,"questionHeight":45,"paddingBottom":20,"minWidth":150,"inPorts":[{"id":"in","label":"In"}],"outPorts":[],"position":{"x":45,"y":38},"angle":0,"question":"Does the thing work?","options":[{"id":"yes","text":"Yes"},{"id":"no","text":"No"}],"id":"d849d917-8a43-4d51-9e99-291799c144db","z":1,"attrs":{".options":{"ref-y":45},".question-text":{"text":"Does the thing work?"},".option-yes":{"transform":"translate(0, 0)","dynamic":true},".option-yes .option-rect":{"height":30,"dynamic":true},".option-yes .option-port .port-body":{"port":"yes","dynamic":true},".option-yes .option-text":{"text":"Yes","dynamic":true},".option-no":{"transform":"translate(0, 30)","dynamic":true},".option-no .option-rect":{"height":30,"dynamic":true},".option-no .option-port .port-body":{"port":"no","dynamic":true},".option-no .option-text":{"text":"No","dynamic":true},".inPorts>.port-in>.port-label":{"text":"In"},".inPorts>.port-in>.port-body":{"port":{"id":"in","type":"in","label":"In"}},".inPorts>.port-in":{"ref":".body","ref-x":0.5}}},{"type":"qad.Answer","size":{"width":223.796875,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":464,"y":68},"angle":0,"answer":"Don't mess about with it.","id":"4073e883-1cc6-46a5-b22d-688ca1934324","z":2,"attrs":{"text":{"text":"Don't mess about with it."}}},{"type":"link","source":{"id":"d849d917-8a43-4d51-9e99-291799c144db","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(1) g:nth-child(4) circle:nth-child(1)      ","port":"yes"},"target":{"id":"4073e883-1cc6-46a5-b22d-688ca1934324"},"router":{"name":"manhattan"},"connector":{"name":"rounded"},"id":"9d87214a-7b08-47ce-9aec-8e49ed7ae929","embeds":"","z":3,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"qad.Question","size":{"width":195.6484375,"height":125},"optionHeight":30,"questionHeight":45,"paddingBottom":20,"minWidth":150,"inPorts":[{"id":"in","label":"In"}],"outPorts":[],"position":{"x":55,"y":245},"angle":0,"question":"Did you mess about with it?","options":[{"id":"yes","text":"Yes"},{"id":"no","text":"No"}],"id":"8ce3f820-54f0-41f0-a46c-1e4f57b5f91e","z":4,"attrs":{".options":{"ref-y":45},".question-text":{"text":"Did you mess about with it?"},".option-yes":{"transform":"translate(0, 0)","dynamic":true},".option-yes .option-rect":{"height":30,"dynamic":true},".option-yes .option-port .port-body":{"port":"yes","dynamic":true},".option-yes .option-text":{"text":"Yes","dynamic":true},".option-no":{"transform":"translate(0, 30)","dynamic":true},".option-no .option-rect":{"height":30,"dynamic":true},".option-no .option-port .port-body":{"port":"no","dynamic":true},".option-no .option-text":{"text":"No","dynamic":true},".inPorts>.port-in>.port-label":{"text":"In"},".inPorts>.port-in>.port-body":{"port":{"id":"in","type":"in","label":"In"}},".inPorts>.port-in":{"ref":".body","ref-x":0.5}}},{"type":"qad.Answer","size":{"width":156.234375,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":343,"y":203},"angle":0,"answer":"Run away!","id":"7da45291-2535-4aa1-bb50-5cadd2b2fb91","z":5,"attrs":{"text":{"text":"Run away!"}}},{"type":"link","source":{"id":"8ce3f820-54f0-41f0-a46c-1e4f57b5f91e","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(1) g:nth-child(4) circle:nth-child(1)      ","port":"yes"},"target":{"id":"7da45291-2535-4aa1-bb50-5cadd2b2fb91"},"router":{"name":"manhattan"},"connector":{"name":"rounded"},"id":"fd9f3367-79b9-4f69-b5b7-2bba012e53bb","embeds":"","z":6,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"qad.Question","size":{"width":155.6171875,"height":125},"optionHeight":30,"questionHeight":45,"paddingBottom":20,"minWidth":150,"inPorts":[{"id":"in","label":"In"}],"outPorts":[],"position":{"x":238,"y":429},"angle":0,"question":"Will you get screwed?","options":[{"id":"yes","text":"Yes"},{"id":"no","text":"No"}],"id":"fd3e0ab4-fd3a-4342-972b-3616e0c0a5cf","z":7,"attrs":{".options":{"ref-y":45},".question-text":{"text":"Will you get screwed?"},".option-yes":{"transform":"translate(0, 0)","dynamic":true},".option-yes .option-rect":{"height":30,"dynamic":true},".option-yes .option-port .port-body":{"port":"yes","dynamic":true},".option-yes .option-text":{"text":"Yes","dynamic":true},".option-no":{"transform":"translate(0, 30)","dynamic":true},".option-no .option-rect":{"height":30,"dynamic":true},".option-no .option-port .port-body":{"port":"no","dynamic":true},".option-no .option-text":{"text":"No","dynamic":true},".inPorts>.port-in>.port-label":{"text":"In"},".inPorts>.port-in>.port-body":{"port":{"id":"in","type":"in","label":"In"}},".inPorts>.port-in":{"ref":".body","ref-x":0.5}}},{"type":"link","source":{"id":"d849d917-8a43-4d51-9e99-291799c144db","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(2) g:nth-child(4) circle:nth-child(1)      ","port":"no"},"target":{"id":"8ce3f820-54f0-41f0-a46c-1e4f57b5f91e","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(1) circle:nth-child(1)     ","port":"in"},"router":{"name":"manhattan"},"connector":{"name":"rounded"},"id":"641410b2-aeb5-42ad-b757-2d9c6e4d56bd","embeds":"","z":8,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"link","source":{"id":"8ce3f820-54f0-41f0-a46c-1e4f57b5f91e","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(2) g:nth-child(4) circle:nth-child(1)      ","port":"no"},"target":{"id":"fd3e0ab4-fd3a-4342-972b-3616e0c0a5cf","selector":"g:nth-child(1) g:nth-child(4) g:nth-child(1) circle:nth-child(1)     ","port":"in"},"router":{"name":"manhattan"},"connector":{"name":"rounded"},"id":"3b9de57d-be21-4e9e-a73b-693b32e5f14a","embeds":"","z":9,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"qad.Answer","size":{"width":177.1953125,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":545,"y":400},"angle":0,"answer":"Poor boy.","id":"13402455-006d-41e3-aacc-514f551b78b8","z":10,"attrs":{"text":{"text":"Poor boy."}}},{"type":"qad.Answer","size":{"width":146.9453125,"height":66.8},"inPorts":[{"id":"in","label":"In"}],"outPorts":[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}],"position":{"x":553,"y":524},"angle":0,"answer":"Put it in a bin.","id":"857c9deb-86c3-47d8-bc6d-8f36c5294eab","z":11,"attrs":{"text":{"text":"Put it in a bin."}}},{"type":"link","source":{"id":"fd3e0ab4-fd3a-4342-972b-3616e0c0a5cf","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(1) g:nth-child(4) circle:nth-child(1)      ","port":"yes"},"target":{"id":"13402455-006d-41e3-aacc-514f551b78b8"},"router":{"name":"manhattan"},"connector":{"name":"rounded"},"id":"7e96039d-c3d4-4c86-b8e5-9a49835e114b","embeds":"","z":12,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}},{"type":"link","source":{"id":"fd3e0ab4-fd3a-4342-972b-3616e0c0a5cf","selector":"g:nth-child(1) g:nth-child(3) g:nth-child(2) g:nth-child(4) circle:nth-child(1)      ","port":"no"},"target":{"id":"857c9deb-86c3-47d8-bc6d-8f36c5294eab"},"router":{"name":"manhattan"},"connector":{"name":"rounded"},"id":"eecaae21-3e81-43f9-a5c1-6ea40c1adba8","embeds":"","z":13,"attrs":{".marker-target":{"d":"M 10 0 L 0 5 L 10 10 z","fill":"#6a6c8a","stroke":"#6a6c8a"},".connection":{"stroke":"#6a6c8a","stroke-width":2}}}]});
-        var that = this;
-        var dataCall = $.get('/data/kurbi.json');
-        
-        dataCall.error(function(err){console.log('error',err);});
-        dataCall.fail(function(fail){console.log('fail',fail);});
 
-        dataCall.then(function(json){
-            that.graph.fromJSON(json);
-        });
+        // var that = this;
+
+        // var dataCall = $.get(serverURL + '/bot');
+        
+        // dataCall.error(function(err){console.log('error',err);});
+        // dataCall.fail(function(fail){console.log('fail',fail);});
+
+        // dataCall.then(function(res){
+        //     console.log(res);
+        //     var json = JSON.parse(res[1].graph);
+        //     that.graph.fromJSON(json);
+        // });
     },
 
     clear: function() {

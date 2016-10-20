@@ -1,6 +1,7 @@
 {"cells":
 	[
 		{	
+			"start":true,
 			"type":"qad.Question",
 			"size":{"width":201.8984375,"height":125},
 			"optionHeight":30,
@@ -12,7 +13,7 @@
 			"position":{"x":45,"y":38},
 			"angle":0,
 			"question":"How are you feeling today?",
-			"options":[{"id":"great","text":"Great!"},{"id":"ok","text":"OK"},{"id":"terrible","text":"Terrible :("}],
+			"options":[{"id":"great","text":"Great!"},{"id":"terrible","text":"Terrible :("}],
 			"id":"d849d917-8a43-4d51-9e99-291799c144db",
 			"z":1,
 			"attrs":
